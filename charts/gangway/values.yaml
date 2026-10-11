@@ -1,0 +1,6 @@
+replicaCount: 2
+image:
+  repository: ghcr.io/hesham-73/gangway
+  tag: ci
+port: 8080
+servicePort: 80

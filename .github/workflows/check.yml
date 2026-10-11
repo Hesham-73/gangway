@@ -1,0 +1,46 @@
+name: check
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ghcr.io/hesham-73/gangway:ci .
+      - name: smoke
+        run: |
+          docker run -d --name gangway -p 8080:8080 ghcr.io/hesham-73/gangway:ci
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            curl -fsS http://127.0.0.1:8080/health && exit 0
+            sleep 1
+          done
+          docker logs gangway
+          exit 1
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+      - uses: azure/setup-helm@v4
+      - run: kubectl kustomize deploy/k8s/overlays/dev >/dev/null
+      - run: kubectl kustomize deploy/k8s/overlays/prod >/dev/null
+      - run: helm template gangway charts/gangway >/dev/null
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive deploy/terraform
+      - working-directory: deploy/terraform
+        run: terraform init -backend=false
+      - working-directory: deploy/terraform
+        run: terraform validate
